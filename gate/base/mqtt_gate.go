@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/liangdas/mqant/conf"
 	"github.com/liangdas/mqant/gate"
 	"github.com/liangdas/mqant/log"
@@ -27,6 +28,7 @@ import (
 )
 
 var RPC_PARAM_SESSION_TYPE = "SESSION"
+var RPC_PARAM_PROTO_TYPE = "PROTOBUF"
 var RPC_PARAM_ProtocolMarshal_TYPE = "ProtocolMarshal"
 
 type Gate struct {
@@ -142,6 +144,12 @@ func (this *Gate) Serialize(param interface{}) (ptype string, p []byte, err erro
 	case module.ProtocolMarshal:
 		bytes := v2.GetData()
 		return RPC_PARAM_ProtocolMarshal_TYPE, bytes, nil
+	case proto.Message:
+		bytes, err := proto.Marshal(v2)
+		if err != nil {
+			return RPC_PARAM_PROTO_TYPE, nil, err
+		}
+		return RPC_PARAM_PROTO_TYPE, bytes, nil
 	default:
 		return "", nil, fmt.Errorf("args [%s] Types not allowed", reflect.TypeOf(param))
 	}
@@ -157,6 +165,8 @@ func (this *Gate) Deserialize(ptype string, b []byte) (param interface{}, err er
 		return mps, nil
 	case RPC_PARAM_ProtocolMarshal_TYPE:
 		return this.App.NewProtocolMarshal(b), nil
+	case RPC_PARAM_PROTO_TYPE:
+		return b, nil
 	default:
 		return nil, fmt.Errorf("args [%s] Types not allowed", ptype)
 	}
