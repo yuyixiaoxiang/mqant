@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mqtt
+package customPack
 
 import (
 	"bufio"
@@ -180,7 +180,6 @@ func (queue *PackQueue) Flush() error {
 // Get a read pack queue
 // Only call once
 func (queue *PackQueue) ReadPackInLoop() {
-
 	go func() {
 		// defer recover()
 		is_continue := true
@@ -199,6 +198,7 @@ func (queue *PackQueue) ReadPackInLoop() {
 				}
 				select {
 				case queue.readChan <- p:
+					break
 					// Without anything to do
 				case <-queue.noticeFin:
 					//queue.Close()
@@ -207,7 +207,6 @@ func (queue *PackQueue) ReadPackInLoop() {
 				}
 			} else {
 				<-queue.noticeFin
-				//
 				log.Info("Queue not continue")
 				break loop
 			}

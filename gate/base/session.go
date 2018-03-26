@@ -15,6 +15,7 @@ package basegate
 
 import (
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/liangdas/mqant/gate"
 	"github.com/liangdas/mqant/log"
@@ -25,7 +26,7 @@ import (
 type sessionagent struct {
 	app        module.App
 	session    *session
-	span       opentracing.Span
+	span       opentracing.Span //跟踪系统的中的每个跨越，持续
 	judgeGuest func(session gate.Session) bool
 }
 
