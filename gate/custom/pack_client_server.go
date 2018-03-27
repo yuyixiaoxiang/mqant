@@ -233,17 +233,10 @@ func (c *Client) waitQuit() {
 	c.isSendClose = true
 }
 
-func (c *Client) pushMsg(pack *Pack) error {
-	// Write this pack
-	err := c.queue.WritePack(pack)
-	return err
-}
-
-func (c *Client) WriteMsg(topic string, body []byte) error {
+func (c *Client) WriteMsg(msgId uint16, body []byte) error {
 	if c.isStop {
 		return fmt.Errorf("connection is closed")
 	}
-	//pack := GetPubPack(0, 0, c.getOnlineMsgId(), &topic, body)
-	return c.pushMsg(nil)
-	//return nil
+	err := c.queue.WritePack(msgId, body)
+	return err
 }

@@ -17,14 +17,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/liangdas/mqant/conf"
-	"github.com/liangdas/mqant/gate"
-	"github.com/liangdas/mqant/log"
-	"github.com/liangdas/mqant/module"
-	"github.com/liangdas/mqant/module/base"
-	"github.com/liangdas/mqant/rpc"
-	"github.com/liangdas/mqant/rpc/base"
-	opentracing "github.com/opentracing/opentracing-go"
 	"hash/crc32"
 	"math"
 	"os"
@@ -32,6 +24,16 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+
+	"github.com/liangdas/mqant/conf"
+	"github.com/liangdas/mqant/gate"
+	"github.com/liangdas/mqant/gate/custom"
+	"github.com/liangdas/mqant/log"
+	"github.com/liangdas/mqant/module"
+	"github.com/liangdas/mqant/module/base"
+	"github.com/liangdas/mqant/rpc"
+	"github.com/liangdas/mqant/rpc/base"
+	opentracing "github.com/opentracing/opentracing-go"
 )
 
 type resultInfo struct {
@@ -110,6 +112,7 @@ func (app *DefaultApp) Run(debug bool, mods ...module.Module) error {
 
 	defaultConfPath := fmt.Sprintf("%s/bin/conf/server.json", ApplicationDir)
 	defaultLogPath := fmt.Sprintf("%s/bin/logs", ApplicationDir)
+	routerConfPath := fmt.Sprintf("%s/bin/conf/router.txt", ApplicationDir)
 
 	if *confPath == "" {
 		*confPath = defaultConfPath
@@ -135,6 +138,7 @@ func (app *DefaultApp) Run(debug bool, mods ...module.Module) error {
 	fmt.Println("Server configuration file path :", *confPath)
 	conf.LoadConfig(f.Name()) //加载配置文件
 	app.Configure(conf.Conf)  //配置信息
+	customPack.ReadRouterConf(routerConfPath)
 	log.InitBeego(debug, *ProcessID, *Logdir, conf.Conf.Log)
 
 	log.Info("mqant %v starting up", app.version)

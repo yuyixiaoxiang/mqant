@@ -14,15 +14,29 @@ type Pack struct {
 	MsgBody []byte
 }
 
+type PackRouter struct {
+	Id     uint16
+	Module string
+	Func   string
+}
+
 //包路由映射
-var mapPackRouter map[uint16]string
+var mapPackRouter map[uint16]*PackRouter
 
 //注册映射关系
-func RegisterPackRouter(msgId uint16, router string) {
+func RegisterPackRouter(msgId uint16, router *PackRouter) {
 	if mapPackRouter == nil {
-		mapPackRouter = make(map[uint16]string, 100)
+		mapPackRouter = make(map[uint16]*PackRouter, 100)
 	}
 	mapPackRouter[msgId] = router
+}
+
+func GetPackRouter(msgId uint16) *PackRouter {
+	router := mapPackRouter[msgId]
+	if router != nil {
+		return router
+	}
+	return nil
 }
 
 func ReadPack(r *bufio.Reader) (pack *Pack, err error) {
@@ -57,16 +71,28 @@ func readInt16(r *bufio.Reader) (uint16, error) {
 	}
 	return binary.BigEndian.Uint16(buf[:2]), nil
 }
-
-func WritePack(pack *Pack, w *bufio.Writer) error {
-	if err := DelayWritePack(pack, w); err != nil {
-		return err
-	}
+func writeUInt16(w *bufio.Writer, v uint16) error {
+	b := make([]byte, 2)
+	binary.BigEndian.PutUint16(b, v)
+	return writeFull(w, b)
+}
+func WritePack(pack *packAndType, w *bufio.Writer) error {
+	msgId := pack.msgId
+	msgSize := uint16(len(pack.bytes))
+	writeUInt16(w, msgId)
+	writeUInt16(w, msgSize)
+	writeFull(w, pack.bytes)
 	return w.Flush()
 }
 
-func DelayWritePack(pack *Pack, w *bufio.Writer) (err error) {
-	// Write the fixed header
-
-	return
+func writeFull(w *bufio.Writer, b []byte) (err error) {
+	hasRead, n := 0, 0
+	for n < len(b) {
+		n, err = w.Write(b[hasRead:])
+		if err != nil {
+			break
+		}
+		hasRead += n
+	}
+	return err
 }

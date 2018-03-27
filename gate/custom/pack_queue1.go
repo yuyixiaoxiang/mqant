@@ -56,8 +56,8 @@ const (
 )
 
 type packAndType struct {
-	pack *Pack
-	typ  byte
+	msgId uint16
+	bytes []byte
 }
 
 // Init a pack queue
@@ -97,14 +97,7 @@ loop:
 			if queue.conf.WriteTimeout > 0 {
 				queue.conn.SetWriteDeadline(time.Now().Add(time.Second * time.Duration(queue.conf.WriteTimeout)))
 			}
-			switch pt.typ {
-			case NO_DELAY:
-				err = WritePack(pt.pack, queue.w)
-			case DELAY:
-				err = DelayWritePack(pt.pack, queue.w)
-			case FLUSH:
-				err = queue.w.Flush()
-			}
+			err = WritePack(pt, queue.w)
 
 			if err != nil {
 				// Tell listener the error
@@ -119,21 +112,13 @@ loop:
 }
 
 // Write a pack , and get the last error
-func (queue *PackQueue) WritePack(pack *Pack) error {
-	if queue.writeError != nil {
-		return queue.writeError
-	}
-	queue.writeChan <- &packAndType{pack: pack}
-	return nil
-}
-
-func (queue *PackQueue) WriteDelayPack(pack *Pack) error {
+func (queue *PackQueue) WritePack(msgId uint16, bytes []byte) error {
 	if queue.writeError != nil {
 		return queue.writeError
 	}
 	queue.writeChan <- &packAndType{
-		pack: pack,
-		typ:  DELAY,
+		msgId: msgId,
+		bytes: bytes,
 	}
 	return nil
 }
@@ -147,13 +132,13 @@ func (queue *PackQueue) SetAlive(alive int) error {
 	return nil
 }
 
-func (queue *PackQueue) Flush() error {
-	if queue.writeError != nil {
-		return queue.writeError
-	}
-	queue.writeChan <- &packAndType{typ: FLUSH}
-	return nil
-}
+//func (queue *PackQueue) Flush() error {
+//	if queue.writeError != nil {
+//		return queue.writeError
+//	}
+//	queue.writeChan <- &packAndType{typ: FLUSH}
+//	return nil
+//}
 
 // Read a pack and retuen the write queue error
 //func (queue *PackQueue) ReadPack() (pack *mqtt.Pack, err error) {

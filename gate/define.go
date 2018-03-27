@@ -138,6 +138,7 @@ type SessionLearner interface {
 type Agent interface {
 	OnInit(gate Gate, conn network.Conn) error
 	WriteMsg(topic string, body []byte) error
+	WriteMsgBytes(msgId uint16, body []byte) error
 	Close()
 	Run() (err error)
 	OnClose() error
