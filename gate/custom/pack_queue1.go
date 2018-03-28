@@ -33,7 +33,7 @@ type PackQueue struct {
 	errorChan chan error
 	noticeFin chan byte
 	writeChan chan *packAndType
-	readChan  chan<- *packAndErr
+	readChan  chan<- *Pack
 	// Pack connection
 	r *bufio.Reader
 	w *bufio.Writer
@@ -61,7 +61,7 @@ type packAndType struct {
 }
 
 // Init a pack queue
-func NewPackQueue(conf conf.Mqtt, r *bufio.Reader, w *bufio.Writer, conn network.Conn, readChan chan *packAndErr, alive int) *PackQueue {
+func NewPackQueue(conf conf.Mqtt, r *bufio.Reader, w *bufio.Writer, conn network.Conn, readChan chan *Pack, alive int) *PackQueue {
 	if alive < 1 {
 		alive = conf.ReadTimeout
 	}
@@ -132,43 +132,12 @@ func (queue *PackQueue) SetAlive(alive int) error {
 	return nil
 }
 
-//func (queue *PackQueue) Flush() error {
-//	if queue.writeError != nil {
-//		return queue.writeError
-//	}
-//	queue.writeChan <- &packAndType{typ: FLUSH}
-//	return nil
-//}
-
-// Read a pack and retuen the write queue error
-//func (queue *PackQueue) ReadPack() (pack *mqtt.Pack, err error) {
-//	ch := make(chan *packAndErr, 1)
-//	go func() {
-//		p := new(packAndErr)
-//		if Conf.ReadTimeout > 0 {
-//			queue.conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(Conf.ReadTimeout)))
-//		}
-//		p.pack, p.err = mqtt.ReadPack(queue.r)
-//		ch <- p
-//	}()
-//	select {
-//	case err = <-queue.errorChan:
-//		// Hava an error
-//		// pass
-//	case pAndErr := <-ch:
-//		pack = pAndErr.pack
-//		err = pAndErr.err
-//	}
-//	return
-//}
-
 // Get a read pack queue
 // Only call once
 func (queue *PackQueue) ReadPackInLoop() {
 	go func() {
 		// defer recover()
 		is_continue := true
-		p := new(packAndErr)
 	loop:
 		for {
 			if queue.alive > 0 {
@@ -177,12 +146,16 @@ func (queue *PackQueue) ReadPackInLoop() {
 				queue.conn.SetReadDeadline(time.Now().Add(time.Second * 90))
 			}
 			if is_continue {
-				p.pack, p.err = ReadPack(queue.r)
-				if p.err != nil {
+				pack, err := ReadPack(queue.r)
+				if err != nil {
 					is_continue = false
 				}
+				if pack == nil {
+					continue
+				}
+
 				select {
-				case queue.readChan <- p:
+				case queue.readChan <- pack:
 					break
 					// Without anything to do
 				case <-queue.noticeFin:
@@ -195,8 +168,6 @@ func (queue *PackQueue) ReadPackInLoop() {
 				log.Info("Queue not continue")
 				break loop
 			}
-
-			p = new(packAndErr)
 		}
 		queue.Close()
 	}()

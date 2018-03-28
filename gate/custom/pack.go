@@ -22,6 +22,9 @@ type PackRouter struct {
 
 //包路由映射
 var mapPackRouter map[uint16]*PackRouter
+var hasNestPack bool
+var lastMsgId uint16
+var lastMsgSize uint16
 
 //注册映射关系
 func RegisterPackRouter(msgId uint16, router *PackRouter) {
@@ -39,31 +42,50 @@ func GetPackRouter(msgId uint16) *PackRouter {
 	return nil
 }
 
-func ReadPack(r *bufio.Reader) (pack *Pack, err error) {
-	fmt.Println("begin read byte")
-	msgId, err := readInt16(r)
-	if err != nil {
-		return
+func ReadPack(r *bufio.Reader) (*Pack, error) {
+	fmt.Println("start read")
+	r.Peek(1)
+	toPack := func(msgId uint16, msgSize uint16) (*Pack, error) {
+		msgBody := make([]byte, msgSize)
+		_, err := io.ReadFull(r, msgBody)
+		if err != nil {
+			return nil, err
+		}
+		pack := &Pack{
+			MsgId:   msgId,
+			MsgSize: msgSize,
+			MsgBody: msgBody,
+		}
+		fmt.Println("finish read one pack")
+		return pack, nil
 	}
-	msgSize, err := readInt16(r)
-	if err != nil {
-		return
+	if hasNestPack {
+		if r.Buffered() >= int(lastMsgSize) {
+			hasNestPack = false
+			return toPack(lastMsgId, lastMsgSize)
+		}
+	} else if r.Buffered() >= 4 {
+		msgId, err := readUInt16(r)
+		if err != nil {
+			return nil, err
+		}
+		msgSize, err := readUInt16(r)
+		if err != nil {
+			return nil, err
+		}
+		if r.Buffered() >= int(msgSize) {
+			return toPack(msgId, msgSize)
+		} else {
+			//粘包处理
+			hasNestPack = true
+			lastMsgId = msgId
+			lastMsgSize = lastMsgSize
+		}
 	}
-	msgBody := make([]byte, msgSize)
-	_, err = io.ReadFull(r, msgBody)
-	if err != nil {
-		return
-	}
-	pack = &Pack{
-		MsgId:   msgId,
-		MsgSize: msgSize,
-		MsgBody: msgBody,
-	}
-	fmt.Println("finish read byte")
-	return
+	return nil, nil
 }
 
-func readInt16(r *bufio.Reader) (uint16, error) {
+func readUInt16(r *bufio.Reader) (uint16, error) {
 	buf := make([]byte, 2)
 	_, err := io.ReadFull(r, buf[:2])
 	if err != nil {

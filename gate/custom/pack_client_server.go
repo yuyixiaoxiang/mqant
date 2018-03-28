@@ -35,8 +35,8 @@ type PackRecover interface {
 type Client struct {
 	queue *PackQueue
 
-	recover  PackRecover        //消息接收者,从上层接口传过来的 只接收正式消息(心跳包,回复包等都不要)
-	readChan <-chan *packAndErr //读取底层接收到的所有数据包包
+	recover  PackRecover  //消息接收者,从上层接口传过来的 只接收正式消息(心跳包,回复包等都不要)
+	readChan <-chan *Pack //读取底层接收到的所有数据包包
 
 	closeChan   chan byte // Other gorountine Call notice exit
 	isSendClose bool      // Wheather has a new login user.
@@ -50,7 +50,7 @@ type Client struct {
 }
 
 func NewClient(conf conf.Mqtt, recover PackRecover, r *bufio.Reader, w *bufio.Writer, conn network.Conn, alive int) *Client {
-	readChan := make(chan *packAndErr, conf.ReadPackLoop)
+	readChan := make(chan *Pack, conf.ReadPackLoop)
 	return &Client{
 		readChan:  readChan,
 		queue:     NewPackQueue(conf, r, w, conn, readChan, alive),
@@ -86,14 +86,14 @@ loop:
 
 	for {
 		select {
-		case pAndErr, ok := <-c.readChan:
+		case pack, ok := <-c.readChan:
 			if !ok {
 				log.Info("Get a connection error")
 				break loop
 			}
 			fmt.Println("pack client 中读到数据")
 			//pingtime.Reset(time.Second * time.Duration(int(float64(c.queue.alive)*1.5))) //重置
-			if err = c.waitPack(pAndErr); err != nil {
+			if err = c.waitPack(pack); err != nil {
 				log.Info("Get a connection error , will break(%v)", err)
 				break loop
 			}
@@ -133,97 +133,9 @@ func (c *Client) timeout() (err error) {
 	log.Info("timeout 主动关闭连接")
 	return c.queue.conn.Close()
 }
-func (c *Client) waitPack(pAndErr *packAndErr) (err error) {
-	// If connetion has a error, should break
-	// if it return a timeout error, illustrate
-	// hava not recive a heart beat pack at an
-	// given time.
-	if pAndErr.err != nil {
-		err = pAndErr.err
-		return
-	}
+func (c *Client) waitPack(pack *Pack) (err error) {
 
-	c.recover.OnRecover(pAndErr.pack)
-	//log.Debug("Client msg(%v)\n", pAndErr.pack.GetType())
-
-	// Choose the requst type
-	//switch pAndErr.pack.GetType() {
-	//case CONNECT:
-	//	info, ok := (pAndErr.pack.GetVariable()).(*Connect)
-	//	if !ok {
-	//		err = errors.New("It's not a mqtt connection package.")
-	//		return
-	//	}
-	//	//id := info.GetUserName()
-	//	//psw := info.GetPassword()
-	//	c.queue.SetAlive(info.GetKeepAlive())
-	//	err = c.queue.WritePack(GetConnAckPack(0))
-	//case PUBLISH:
-	//	pub := pAndErr.pack.GetVariable().(*Publish)
-	//	//// Del the msg
-	//	//c.delMsg(ack.GetMid())
-	//	//这里向上层转发消息
-	//	//log.Debug("Ack To Client Qos(%d) mid(%d) Topic(%v) msg(%s) \n",pAndErr.pack.GetQos(),pub.GetMid(), *pub.GetTopic(),pub.GetMsg())
-	//	if pAndErr.pack.GetQos() == 1 {
-	//		//回复已收到
-	//		//log.Debug("Ack To Client By PUBACK \n")
-	//		err = c.queue.WritePack(GetPubAckPack(pub.GetMid()))
-	//		if err != nil {
-	//			//log.Debug("PUBACK error(%s) \n",err.Error())
-	//		}
-	//	} else if pAndErr.pack.GetQos() == 2 {
-	//		//log.Debug("Ack To Client By PUBREC \n")
-	//		err = c.queue.WritePack(GetPubRECPack(pub.GetMid()))
-	//	}
-	//	//log.Debug("ss",string(pub.GetMsg()))
-	//	//目前这个版本暂时先不保证消息的Qos 默认用Qos=1吧
-	//	c.recover.OnRecover(pAndErr.pack)
-	//case PUBACK: //4
-	//	//用于 Qos =1 的消息
-	//	//ack := pAndErr.pack.GetVariable().(*mqtt.Puback)
-	//	//log.Debug("Client Ack Qos(%d) Dup(%d) mid(%d) \n",pAndErr.pack.GetQos(),pAndErr.pack.GetDup(), ack.GetMid())
-	//case PUBREC: //5
-	//	//log.Debug("Ack To Client By PUBREL \n")
-	//	//用于 Qos =2 的消息 回复 PUBREL
-	//	ack := pAndErr.pack.GetVariable().(*Puback)
-	//	err = c.queue.WritePack(GetPubRELPack(ack.GetMid()))
-	//case PUBREL: //6
-	//	//log.Debug("Ack To Client By PUBCOMP \n")
-	//	//用于 Qos =2 的消息 回复 PUBCOMP
-	//	ack := pAndErr.pack.GetVariable().(*Puback)
-	//	err = c.queue.WritePack(GetPubCOMPPack(ack.GetMid()))
-	//case PUBCOMP: //7
-	//	//消息发送端最终确认这条消息
-	//	//log.Debug("消息最终确认")
-	//case SUBSCRIBE: //7
-	//	//消息发送端最终确认这条消息
-	//	sub := pAndErr.pack.GetVariable().(*Subscribe)
-	//	for _, top := range sub.GetTopics() {
-	//		//log.Debug("Subscribe %s",*top.GetName())
-	//		if top.Qos == 2 {
-	//			//log.Debug("Ack To Client By Suback \n")
-	//			//用于 Qos =2 的消息 回复 PUBCOMP
-	//			err = c.queue.WritePack(GetSubAckPack(sub.GetMid()))
-	//		}
-	//	}
-	//	//目前这个版本暂时先不保证消息的Qos 默认用Qos=1吧
-	//	c.recover.OnRecover(pAndErr.pack)
-	//case UNSUBSCRIBE: //7
-	//	//消息发送端最终确认这条消息
-	//	sub := pAndErr.pack.GetVariable().(*UNSubscribe)
-	//	err = c.queue.WritePack(GetUNSubAckPack(sub.GetMid()))
-	//	//目前这个版本暂时先不保证消息的Qos 默认用Qos=1吧
-	//	c.recover.OnRecover(pAndErr.pack)
-	//case PINGREQ:
-	//	// Reply the heart beat
-	//	//log.Debug("hb msg")
-	//	err = c.queue.WritePack(GetPingResp(0, pAndErr.pack.GetDup()))
-	//	c.recover.OnRecover(pAndErr.pack)
-	//default:
-	//	// Not define pack type
-	//	//log.Debug("其他类型的数据包")
-	//	//err = fmt.Errorf("The type not define:%v\n", pAndErr.pack.GetType())
-	//}
+	c.recover.OnRecover(pack)
 	return
 }
 
