@@ -91,7 +91,7 @@ loop:
 				log.Info("Get a connection error")
 				break loop
 			}
-			fmt.Println("pack client 中读到数据")
+			//fmt.Println("pack client 中读到数据")
 			//pingtime.Reset(time.Second * time.Duration(int(float64(c.queue.alive)*1.5))) //重置
 			if err = c.waitPack(pack); err != nil {
 				log.Info("Get a connection error , will break(%v)", err)

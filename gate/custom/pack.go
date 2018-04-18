@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"strconv"
+	"time"
 )
 
 //定义包体格式
@@ -57,6 +59,9 @@ func ReadPack(r *bufio.Reader) (*Pack, error) {
 			MsgBody: msgBody,
 		}
 		fmt.Println("finish read one pack")
+		t := time.Now()
+		timestamp := strconv.FormatInt(t.UTC().UnixNano(), 10)
+		fmt.Println(timestamp)
 		return pack, nil
 	}
 	if hasNestPack {
@@ -104,6 +109,9 @@ func WritePack(pack *packAndType, w *bufio.Writer) error {
 	writeUInt16(w, msgId)
 	writeUInt16(w, msgSize)
 	writeFull(w, pack.bytes)
+	t := time.Now()
+	timestamp := strconv.FormatInt(t.UTC().UnixNano(), 10)
+	fmt.Println(timestamp)
 	return w.Flush()
 }
 
