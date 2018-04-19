@@ -15,12 +15,12 @@ package basegate
 
 import (
 	"fmt"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/liangdas/mqant/gate"
 	"github.com/liangdas/mqant/log"
 	"github.com/liangdas/mqant/module"
 	opentracing "github.com/opentracing/opentracing-go"
+	"strconv"
 )
 
 type sessionagent struct {
@@ -67,6 +67,14 @@ func (this *sessionagent) GetNetwork() string {
 
 func (this *sessionagent) GetUserid() string {
 	return this.session.GetUserid()
+}
+
+func (this *sessionagent) GetUserIdInt64() int64 {
+	uid64, err := strconv.ParseInt(this.session.GetUserid(), 10, 64)
+	if err != nil {
+		return -1
+	}
+	return uid64
 }
 
 func (this *sessionagent) GetSessionid() string {
