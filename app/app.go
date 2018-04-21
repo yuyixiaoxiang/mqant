@@ -35,13 +35,6 @@ import (
 	"github.com/liangdas/mqant/rpc"
 	"github.com/liangdas/mqant/rpc/base"
 	opentracing "github.com/opentracing/opentracing-go"
-	"hash/crc32"
-	"math"
-	"os"
-	"os/exec"
-	"os/signal"
-	"path/filepath"
-	"strings"
 )
 
 type resultInfo struct {
